@@ -19,7 +19,12 @@ import {
   Surface,
 } from '@/components/StudentUI';
 import { useColors } from '@/hooks/useColors';
-import { formatArabicNumber, getAttendanceSummary } from '@/lib/student-utils';
+import {
+  formatArabicNumber,
+  getDailyRecord,
+  getDateKey,
+  getStudentAttendanceSummary,
+} from '@/lib/student-utils';
 import { useStudents } from '@/context/StudentsContext';
 
 export default function HomeScreen() {
@@ -28,13 +33,13 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { students, isReady, storageError } = useStudents();
   const now = new Date();
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayKey = getDateKey(now.getFullYear(), now.getMonth(), now.getDate());
   const attendedToday = students.filter(
-    (student) => student.attendance[todayKey] === 'present',
+    (student) => getDailyRecord(student, todayKey).attendance === 'present',
   ).length;
   const monthlyTotals = students.reduce(
     (total, student) => {
-      const summary = getAttendanceSummary(student.attendance, now);
+      const summary = getStudentAttendanceSummary(student, now);
       return {
         present: total.present + summary.present,
         absent: total.absent + summary.absent,

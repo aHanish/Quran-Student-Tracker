@@ -29,13 +29,15 @@ import {
   escapeHtml,
   formatArabicNumber,
   formatDayLabel,
-  getAttendanceSummary,
+  getDailyRecord,
   getDateKey,
   getMonthDayCount,
   getMonthTitle,
+  getMonthlyPlan,
+  getStudentAttendanceSummary,
 } from '@/lib/student-utils';
 
-function attendanceLabel(status: AttendanceStatus | undefined) {
+function attendanceLabel(status: AttendanceStatus | null | undefined) {
   if (status === 'present') return 'حاضر';
   if (status === 'absent') return 'غائب';
   return 'لم يسجل';
@@ -46,7 +48,7 @@ export default function StudentDetailsScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { students, cycleAttendance, removeStudent, isReady } = useStudents();
+  const { students, removeStudent, isReady } = useStudents();
   const student = students.find((item) => item.id === id);
   const [month, setMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -54,9 +56,13 @@ export default function StudentDetailsScreen() {
   const [exporting, setExporting] = useState(false);
   const daysCount = getMonthDayCount(month);
   const summary = useMemo(
-    () => (student ? getAttendanceSummary(student.attendance, month) : { present: 0, absent: 0 }),
+    () =>
+      student
+        ? getStudentAttendanceSummary(student, month)
+        : { present: 0, absent: 0 },
     [month, student],
   );
+  const monthlyPlan = student ? getMonthlyPlan(student, month) : null;
   const leadingBlanks = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
 
   const confirmDelete = () => {
@@ -85,26 +91,35 @@ export default function StudentDetailsScreen() {
       const days = Array.from({ length: daysCount }, (_, index) => index + 1);
       const rows = days
         .map((day) => {
-          const status = student.attendance[getDateKey(month.getFullYear(), month.getMonth(), day)];
-          const label = attendanceLabel(status);
-          return `<tr><td>${escapeHtml(formatDayLabel(day, month))}</td><td>${escapeHtml(label)}</td></tr>`;
+          const dayKey = getDateKey(month.getFullYear(), month.getMonth(), day);
+          const record = getDailyRecord(student, dayKey);
+          const hasDailyEntry = Boolean(student.dailyRecords[dayKey]);
+          return `<tr>
+            <td>${escapeHtml(formatDayLabel(day, month))}</td>
+            <td>${escapeHtml(attendanceLabel(record.attendance))}</td>
+            <td>${escapeHtml(hasDailyEntry ? record.surahName || 'غير محددة' : 'لم يسجل')}</td>
+            <td>${record.hasMemorizedSurah === null ? 'لم يسجل' : record.hasMemorizedSurah ? 'نعم' : 'لا'}</td>
+            <td>${escapeHtml(hasDailyEntry ? record.reviewName || 'غير محددة' : 'لم يسجل')}</td>
+            <td>${record.hasCompletedReview === null ? 'لم يسجل' : record.hasCompletedReview ? 'نعم' : 'لا'}</td>
+          </tr>`;
         })
         .join('');
+      const reportPlan = getMonthlyPlan(student, month);
       const html = `
         <!doctype html>
         <html lang="ar" dir="rtl">
           <head>
             <meta charset="utf-8" />
             <style>
-              @page { margin: 24px; }
+              @page { size: A4 landscape; margin: 20px; }
               body { font-family: Arial, sans-serif; direction: rtl; color: #173b32; padding: 12px; }
               h1 { font-size: 24px; margin-bottom: 4px; }
               h2 { font-size: 16px; margin-top: 26px; }
               .muted { color: #718078; margin-top: 0; }
               .box { background: #f4f5ed; border-radius: 12px; padding: 14px 18px; margin: 12px 0; }
               .row { display: flex; justify-content: space-between; gap: 20px; padding: 7px 0; border-bottom: 1px solid #e2e4d9; }
-              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th, td { border-bottom: 1px solid #e2e4d9; padding: 8px; text-align: right; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; }
+              th, td { border-bottom: 1px solid #e2e4d9; padding: 7px; text-align: right; }
               th { background: #e9eee6; }
             </style>
           </head>
@@ -118,10 +133,17 @@ export default function StudentDetailsScreen() {
               <div class="row"><strong>المراجعة</strong><span>${escapeHtml(student.reviewName || 'غير محددة')}</span></div>
               <div class="row"><strong>أتم المراجعة</strong><span>${student.hasCompletedReview ? 'نعم' : 'لا'}</span></div>
             </section>
+            <h2>خطة بداية الشهر</h2>
+            <section class="box">
+              <div class="row"><strong>السورة</strong><span>${escapeHtml(reportPlan.surahName || 'غير محددة')}</span></div>
+              <div class="row"><strong>حالة الحفظ</strong><span>${reportPlan.hasMemorizedSurah ? 'نعم' : 'لا'}</span></div>
+              <div class="row"><strong>المراجعة</strong><span>${escapeHtml(reportPlan.reviewName || 'غير محددة')}</span></div>
+              <div class="row"><strong>حالة المراجعة</strong><span>${reportPlan.hasCompletedReview ? 'تمت' : 'لم تتم'}</span></div>
+            </section>
             <h2>الحضور والغياب</h2>
             <p>الحضور: ${formatArabicNumber(summary.present)} &nbsp; | &nbsp; الغياب: ${formatArabicNumber(summary.absent)}</p>
             <table>
-              <thead><tr><th>اليوم</th><th>الحالة</th></tr></thead>
+              <thead><tr><th>اليوم</th><th>الحضور</th><th>سورة اليوم</th><th>حفظها؟</th><th>مراجعة اليوم</th><th>أتم المراجعة؟</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </body>
@@ -287,7 +309,7 @@ export default function StudentDetailsScreen() {
       </Surface>
 
       <View style={styles.monthHeader}>
-        <SectionTitle title="الحضور الشهري" />
+        <SectionTitle title="خطة الشهر والحضور" />
         <View style={styles.monthControls}>
           <Pressable
             accessibilityRole="button"
@@ -311,13 +333,49 @@ export default function StudentDetailsScreen() {
         </View>
       </View>
 
+      {monthlyPlan ? (
+        <Surface style={styles.monthlyPlanCard}>
+          <View style={styles.monthlyPlanTitleRow}>
+            <Text style={[styles.monthlyPlanTitle, { color: colors.foreground }]}>
+              خطة بداية الشهر
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: '/attendance',
+                  params: { mode: 'monthly', month: `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}` },
+                })
+              }
+              testID="student-edit-monthly-plan"
+              style={({ pressed }) => [
+                styles.planEditButton,
+                { backgroundColor: colors.secondary },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Feather name="edit-2" size={13} color={colors.primary} />
+              <Text style={[styles.planEditText, { color: colors.primary }]}>تعديل</Text>
+            </Pressable>
+          </View>
+          <Text style={[styles.monthlyPlanLine, { color: colors.mutedForeground }]}>
+            السورة: {monthlyPlan.surahName || 'غير محددة'} ·{' '}
+            {monthlyPlan.hasMemorizedSurah ? 'تم حفظها' : 'لم تحفظ بعد'}
+          </Text>
+          <Text style={[styles.monthlyPlanLine, { color: colors.mutedForeground }]}>
+            المراجعة: {monthlyPlan.reviewName || 'غير محددة'} ·{' '}
+            {monthlyPlan.hasCompletedReview ? 'تمت' : 'لم تتم'}
+          </Text>
+        </Surface>
+      ) : null}
+
       <Surface style={styles.calendarCard}>
         <View style={styles.calendarSummary}>
           <StatusBadge label={`${formatArabicNumber(summary.present)} حضور`} tone="good" />
           <StatusBadge label={`${formatArabicNumber(summary.absent)} غياب`} tone="bad" />
         </View>
         <Text style={[styles.calendarHint, { color: colors.mutedForeground }]}>
-          اضغط على اليوم للتبديل بين حاضر، غائب، ولم يسجل.
+          اضغط على أي يوم لتسجيل الحضور والحفظ والسورة والمراجعة لذلك اليوم.
         </Text>
         <View style={styles.weekdayRow}>
           {ARABIC_WEEKDAYS.map((day, index) => (
@@ -336,7 +394,8 @@ export default function StudentDetailsScreen() {
           {Array.from({ length: daysCount }, (_, index) => {
             const day = index + 1;
             const dayKey = getDateKey(month.getFullYear(), month.getMonth(), day);
-            const status = student.attendance[dayKey];
+            const record = getDailyRecord(student, dayKey);
+            const status = record.attendance;
             const activeColor =
               status === 'present'
                 ? colors.primary
@@ -349,7 +408,12 @@ export default function StudentDetailsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${formatDayLabel(day, month)}، ${attendanceLabel(status)}. اضغط للتغيير`}
                 accessibilityHint="يتغير بين حاضر وغائب ولم يسجل"
-                onPress={() => cycleAttendance(student.id, dayKey)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/student/daily',
+                    params: { id: student.id, dayKey },
+                  })
+                }
                 testID={`attendance-day-${dayKey}`}
                 style={({ pressed }) => [
                   styles.dayCell,
@@ -374,6 +438,18 @@ export default function StudentDetailsScreen() {
                     name={status === 'present' ? 'check' : 'x'}
                     size={11}
                     color={colors.primaryForeground}
+                  />
+                ) : null}
+                {record.hasMemorizedSurah !== null ? (
+                  <View
+                    style={[
+                      styles.memorizationDot,
+                      {
+                        backgroundColor: record.hasMemorizedSurah
+                          ? colors.accentForeground
+                          : colors.mutedForeground,
+                      },
+                    ]}
                   />
                 ) : null}
               </Pressable>
@@ -451,6 +527,23 @@ const styles = StyleSheet.create({
   monthControls: { alignItems: 'center', flexDirection: 'row-reverse', gap: 10 },
   monthTitle: { fontSize: 13, fontWeight: '700' },
   calendarCard: { gap: 12, padding: 14 },
+  monthlyPlanCard: { gap: 7, padding: 14 },
+  monthlyPlanTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+  },
+  monthlyPlanTitle: { fontSize: 14, fontWeight: '700', textAlign: 'right' },
+  planEditButton: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flexDirection: 'row-reverse',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  planEditText: { fontSize: 11, fontWeight: '700' },
+  monthlyPlanLine: { fontSize: 11, lineHeight: 18, textAlign: 'right' },
   calendarSummary: { flexDirection: 'row-reverse', gap: 8 },
   calendarHint: { fontSize: 11, lineHeight: 18, textAlign: 'right' },
   weekdayRow: { flexDirection: 'row-reverse' },
@@ -459,6 +552,12 @@ const styles = StyleSheet.create({
   dayCell: { alignItems: 'center', height: 42, justifyContent: 'center', width: '14.2857%' },
   calendarDay: { borderRadius: 12, borderWidth: 1, marginBottom: 4 },
   dayNumber: { fontSize: 12, fontWeight: '700' },
+  memorizationDot: {
+    borderRadius: 999,
+    height: 4,
+    marginTop: 1,
+    width: 4,
+  },
   legend: { flexDirection: 'row-reverse', gap: 14, justifyContent: 'center', paddingTop: 4 },
   legendItem: { alignItems: 'center', flexDirection: 'row-reverse', gap: 5 },
   legendDot: { borderRadius: 999, height: 8, width: 8 },

@@ -10,7 +10,8 @@ import React, {
   useState,
 } from 'react';
 import {
-  AttendanceStatus,
+  DailyRecord,
+  StudyPlan,
   Student,
   StudentDraft,
 } from '@/lib/student-utils';
@@ -24,20 +25,33 @@ interface StudentsContextValue {
   addStudent: (draft: StudentDraft) => string;
   updateStudent: (id: string, draft: StudentDraft) => void;
   removeStudent: (id: string) => void;
-  cycleAttendance: (id: string, dayKey: string) => void;
+  setMonthlyPlan: (id: string, monthKey: string, plan: StudyPlan) => void;
+  updateDailyRecord: (
+    id: string,
+    dayKey: string,
+    updates: Partial<DailyRecord>,
+  ) => void;
 }
 
 const StudentsContext = createContext<StudentsContextValue | undefined>(
   undefined,
 );
 
-function isStudentList(value: unknown): value is Student[] {
+type StoredStudent = Omit<Student, 'monthlyPlans' | 'dailyRecords'> & {
+  monthlyPlans?: Record<string, StudyPlan>;
+  dailyRecords?: Record<string, DailyRecord>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isStudentList(value: unknown): value is StoredStudent[] {
   return (
     Array.isArray(value) &&
     value.every(
       (item) =>
-        item &&
-        typeof item === 'object' &&
+        isRecord(item) &&
         typeof item.id === 'string' &&
         typeof item.name === 'string' &&
         typeof item.surahName === 'string' &&
@@ -45,8 +59,9 @@ function isStudentList(value: unknown): value is Student[] {
         typeof item.reviewName === 'string' &&
         typeof item.hasCompletedReview === 'boolean' &&
         typeof item.createdAt === 'string' &&
-        item.attendance &&
-        typeof item.attendance === 'object',
+        isRecord(item.attendance) &&
+        (item.monthlyPlans === undefined || isRecord(item.monthlyPlans)) &&
+        (item.dailyRecords === undefined || isRecord(item.dailyRecords)),
     )
   );
 }
@@ -67,7 +82,13 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
         if (!isStudentList(parsed)) {
           throw new Error('Saved student data has an invalid format.');
         }
-        setStudents(parsed);
+        setStudents(
+          parsed.map((student) => ({
+            ...student,
+            monthlyPlans: student.monthlyPlans ?? {},
+            dailyRecords: student.dailyRecords ?? {},
+          })),
+        );
       })
       .catch(() => {
         if (active) {
@@ -104,6 +125,8 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
       id,
       createdAt: new Date().toISOString(),
       attendance: {},
+      monthlyPlans: {},
+      dailyRecords: {},
     };
     setStudents((current) => [student, ...current]);
     return id;
@@ -119,23 +142,63 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     setStudents((current) => current.filter((student) => student.id !== id));
   }, []);
 
-  const cycleAttendance = useCallback((id: string, dayKey: string) => {
-    setStudents((current) =>
-      current.map((student) => {
-        if (student.id !== id) return student;
-        const attendance = { ...student.attendance };
-        const currentStatus: AttendanceStatus | undefined = attendance[dayKey];
-        if (!currentStatus) {
-          attendance[dayKey] = 'present';
-        } else if (currentStatus === 'present') {
-          attendance[dayKey] = 'absent';
-        } else {
-          delete attendance[dayKey];
-        }
-        return { ...student, attendance };
-      }),
-    );
-  }, []);
+  const setMonthlyPlan = useCallback(
+    (id: string, monthKey: string, plan: StudyPlan) => {
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === id
+            ? {
+                ...student,
+                monthlyPlans: { ...student.monthlyPlans, [monthKey]: plan },
+              }
+            : student,
+        ),
+      );
+    },
+    [],
+  );
+
+  const updateDailyRecord = useCallback(
+    (id: string, dayKey: string, updates: Partial<DailyRecord>) => {
+      setStudents((current) =>
+        current.map((student) => {
+          if (student.id !== id) return student;
+
+          const monthKey = dayKey.slice(0, 7);
+          const plan = student.monthlyPlans[monthKey] ?? {
+            surahName: student.surahName,
+            hasMemorizedSurah: student.hasMemorizedSurah,
+            reviewName: student.reviewName,
+            hasCompletedReview: student.hasCompletedReview,
+          };
+          const previous = student.dailyRecords[dayKey] ?? {
+            attendance: student.attendance[dayKey] ?? null,
+            surahName: plan.surahName,
+            hasMemorizedSurah: null,
+            reviewName: plan.reviewName,
+            hasCompletedReview: null,
+          };
+          const nextRecord = { ...previous, ...updates };
+          const attendance = { ...student.attendance };
+          if (nextRecord.attendance) {
+            attendance[dayKey] = nextRecord.attendance;
+          } else {
+            delete attendance[dayKey];
+          }
+
+          return {
+            ...student,
+            attendance,
+            dailyRecords: {
+              ...student.dailyRecords,
+              [dayKey]: nextRecord,
+            },
+          };
+        }),
+      );
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({
@@ -145,7 +208,8 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
       addStudent,
       updateStudent,
       removeStudent,
-      cycleAttendance,
+      setMonthlyPlan,
+      updateDailyRecord,
     }),
     [
       students,
@@ -154,7 +218,8 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
       addStudent,
       updateStudent,
       removeStudent,
-      cycleAttendance,
+      setMonthlyPlan,
+      updateDailyRecord,
     ],
   );
 

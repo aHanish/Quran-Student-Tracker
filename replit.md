@@ -24,7 +24,7 @@
 ## Where things live
 
 - `artifacts/mobile/app/(tabs)/` — home, students, and monthly attendance
-- `artifacts/mobile/app/student/` — student details, edit form, calendar, and PDF export
+- `artifacts/mobile/app/student/` — student details, daily record editor, and student form
 - `artifacts/mobile/context/StudentsContext.tsx` — student and attendance state
 - `artifacts/mobile/lib/student-utils.ts` — attendance and date helpers
 - `artifacts/mobile/constants/colors.ts` — mobile color palette
@@ -32,15 +32,17 @@
 ## Architecture decisions
 
 - Student records are stored locally on the device with AsyncStorage; there is no account or cloud sync.
-- A day in the student's monthly calendar cycles between unrecorded, present, and absent.
-- PDF reports include the student's study status and the selected month's attendance.
+- Monthly study plans are stored separately from each day's attendance and progress.
+- New daily records start with that month's planned surah and review; daily results remain separate.
+- PDF reports include the monthly plan and a row for every day in the selected month.
 
 ## Product
 
 - Add, search, edit, and remove student records.
 - Track the current surah and review item, including whether each is complete.
-- Record a student's attendance for each day and view monthly totals.
-- Export an individual student's study and attendance report as PDF.
+- Set each student's monthly surah and review plan in one roster.
+- Record daily attendance, memorization, surah, and review, with quick roster controls.
+- Export an individual student's monthly plan and daily progress as PDF.
 
 ## User preferences
 

@@ -1,5 +1,20 @@
 export type AttendanceStatus = 'present' | 'absent';
 
+export interface StudyPlan {
+  surahName: string;
+  hasMemorizedSurah: boolean;
+  reviewName: string;
+  hasCompletedReview: boolean;
+}
+
+export interface DailyRecord {
+  attendance: AttendanceStatus | null;
+  surahName: string;
+  hasMemorizedSurah: boolean | null;
+  reviewName: string;
+  hasCompletedReview: boolean | null;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -9,9 +24,14 @@ export interface Student {
   hasCompletedReview: boolean;
   createdAt: string;
   attendance: Record<string, AttendanceStatus>;
+  monthlyPlans: Record<string, StudyPlan>;
+  dailyRecords: Record<string, DailyRecord>;
 }
 
-export type StudentDraft = Omit<Student, 'id' | 'createdAt' | 'attendance'>;
+export type StudentDraft = Omit<
+  Student,
+  'id' | 'createdAt' | 'attendance' | 'monthlyPlans' | 'dailyRecords'
+>;
 
 export const ARABIC_MONTHS = [
   'يناير',
@@ -61,6 +81,43 @@ export function getAttendanceSummary(
   });
 
   return { present, absent };
+}
+
+export function getMonthlyPlan(student: Student, month: Date | string): StudyPlan {
+  const monthKey = typeof month === 'string' ? month : getMonthKey(month);
+  return (
+    student.monthlyPlans?.[monthKey] ?? {
+      surahName: student.surahName,
+      hasMemorizedSurah: student.hasMemorizedSurah,
+      reviewName: student.reviewName,
+      hasCompletedReview: student.hasCompletedReview,
+    }
+  );
+}
+
+export function getDailyRecord(student: Student, dayKey: string): DailyRecord {
+  const saved = student.dailyRecords?.[dayKey];
+  if (saved) return saved;
+  const plan = getMonthlyPlan(student, dayKey.slice(0, 7));
+  return {
+    attendance: student.attendance?.[dayKey] ?? null,
+    surahName: plan.surahName,
+    hasMemorizedSurah: null,
+    reviewName: plan.reviewName,
+    hasCompletedReview: null,
+  };
+}
+
+export function getStudentAttendanceSummary(student: Student, month: Date) {
+  const summary = { present: 0, absent: 0 };
+  const days = getMonthDayCount(month);
+  for (let day = 1; day <= days; day += 1) {
+    const dayKey = getDateKey(month.getFullYear(), month.getMonth(), day);
+    const status = getDailyRecord(student, dayKey).attendance;
+    if (status === 'present') summary.present += 1;
+    if (status === 'absent') summary.absent += 1;
+  }
+  return summary;
 }
 
 export function formatArabicNumber(value: number): string {

@@ -28,6 +28,10 @@ function RootLayoutNav() {
         name="student/form"
         options={{ headerShown: false, presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="student/daily"
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
       <Stack.Screen name="student/[id]" options={{ headerShown: false }} />
     </Stack>
   );
