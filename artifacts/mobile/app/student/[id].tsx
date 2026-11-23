@@ -29,9 +29,12 @@ import {
   escapeHtml,
   formatArabicNumber,
   formatDayLabel,
+  formatReportDayLabel,
+  formatReportMonthLabel,
   getDailyRecord,
   getDateKey,
   getMonthDayCount,
+  getReportDays,
   getMonthTitle,
   getMonthlyPlan,
   getStudentAttendanceSummary,
@@ -88,14 +91,13 @@ export default function StudentDetailsScreen() {
     if (!student) return;
     setExporting(true);
     try {
-      const days = Array.from({ length: daysCount }, (_, index) => index + 1);
-      const rows = days
+      const rows = getReportDays(month)
         .map((day) => {
           const dayKey = getDateKey(month.getFullYear(), month.getMonth(), day);
           const record = getDailyRecord(student, dayKey);
           const hasDailyEntry = Boolean(student.dailyRecords[dayKey]);
           return `<tr>
-            <td>${escapeHtml(formatDayLabel(day, month))}</td>
+            <td>${escapeHtml(formatReportDayLabel(day, month))}</td>
             <td>${escapeHtml(attendanceLabel(record.attendance))}</td>
             <td>${escapeHtml(hasDailyEntry ? record.surahName || 'غير محددة' : 'لم يسجل')}</td>
             <td>${record.hasMemorizedSurah === null ? 'لم يسجل' : record.hasMemorizedSurah ? 'نعم' : 'لا'}</td>
@@ -125,7 +127,7 @@ export default function StudentDetailsScreen() {
           </head>
           <body>
             <h1>تقرير متابعة الطالب</h1>
-            <p class="muted">${escapeHtml(getMonthTitle(month))}</p>
+            <p class="muted">${escapeHtml(formatReportMonthLabel(month))}</p>
             <section class="box">
               <div class="row"><strong>اسم الطالب</strong><span>${escapeHtml(student.name)}</span></div>
               <div class="row"><strong>السورة الحالية</strong><span>${escapeHtml(student.surahName || 'غير محددة')}</span></div>

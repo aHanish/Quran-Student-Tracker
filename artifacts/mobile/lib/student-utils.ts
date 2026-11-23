@@ -49,6 +49,15 @@ export const ARABIC_MONTHS = [
 ];
 
 export const ARABIC_WEEKDAYS = ['أح', 'اث', 'ثل', 'أر', 'خم', 'جم', 'سب'];
+const ARABIC_WEEKDAYS_FULL = [
+  'الأحد',
+  'الإثنين',
+  'الثلاثاء',
+  'الأربعاء',
+  'الخميس',
+  'الجمعة',
+  'السبت',
+];
 
 export function getMonthTitle(date: Date): string {
   return `${ARABIC_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
@@ -126,6 +135,24 @@ export function formatArabicNumber(value: number): string {
 
 export function formatDayLabel(day: number, date: Date): string {
   return `${formatArabicNumber(day)} ${ARABIC_MONTHS[date.getMonth()]}`;
+}
+
+export function getReportDays(date: Date): number[] {
+  return Array.from({ length: getMonthDayCount(date) }, (_, index) => index + 1).filter(
+    (day) => {
+      const weekday = new Date(date.getFullYear(), date.getMonth(), day).getDay();
+      return weekday !== 4 && weekday !== 5;
+    },
+  );
+}
+
+export function formatReportDayLabel(day: number, date: Date): string {
+  const weekday = new Date(date.getFullYear(), date.getMonth(), day).getDay();
+  return `يوم ${ARABIC_WEEKDAYS_FULL[weekday]} ${day}`;
+}
+
+export function formatReportMonthLabel(date: Date): string {
+  return `شهر ${date.getMonth() + 1} / ${date.getFullYear()}`;
 }
 
 export function escapeHtml(value: string): string {
