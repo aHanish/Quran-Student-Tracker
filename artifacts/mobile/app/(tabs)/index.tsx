@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   EmptyState,
   PrimaryButton,
-  ScreenHeading,
   SectionTitle,
   StatusBadge,
   Surface,
@@ -73,12 +72,6 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
-
-      <ScreenHeading
-        eyebrow="متابعة الحفظ والمراجعة"
-        title="السلام عليكم"
-        subtitle="كل تفاصيل الحلقة في مكان واحد، بخطوات بسيطة."
-      />
 
       {storageError ? (
         <View style={[styles.errorBanner, { backgroundColor: colors.muted }]}>
