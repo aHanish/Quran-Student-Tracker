@@ -48,7 +48,7 @@ function QuickStatus({
   testID,
 }: {
   title: string;
-  value: 'present' | 'absent' | 'yes' | 'no' | 'empty';
+  value: 'present' | 'absent' | 'yes' | 'no' | 'done' | 'notDone' | 'empty';
   onPress: () => void;
   testID: string;
 }) {
@@ -58,6 +58,8 @@ function QuickStatus({
     absent: { label: 'غاب', background: colors.muted, foreground: colors.destructive },
     yes: { label: 'حفظ', background: colors.secondary, foreground: colors.primary },
     no: { label: 'لم يحفظ', background: colors.muted, foreground: colors.destructive },
+    done: { label: 'تمت', background: colors.secondary, foreground: colors.primary },
+    notDone: { label: 'لم تتم', background: colors.muted, foreground: colors.destructive },
     empty: { label: 'سجّل', background: colors.card, foreground: colors.mutedForeground },
   }[value];
   return (
@@ -246,6 +248,12 @@ function DailyRegisterRow({
       : record.hasMemorizedSurah === false
         ? 'no'
         : 'empty';
+  const reviewValue =
+    record.hasCompletedReview === true
+      ? 'done'
+      : record.hasCompletedReview === false
+        ? 'notDone'
+        : 'empty';
 
   return (
     <Surface style={styles.dailyCard}>
@@ -286,7 +294,7 @@ function DailyRegisterRow({
           testID={`daily-attendance-${student.id}`}
         />
         <QuickStatus
-          title="الحفظ"
+          title="حفظ السورة"
           value={memorizationValue}
           onPress={() =>
             updateDailyRecord(student.id, dayKey, {
@@ -294,6 +302,16 @@ function DailyRegisterRow({
             })
           }
           testID={`daily-memorized-${student.id}`}
+        />
+        <QuickStatus
+          title="حفظ المراجعة"
+          value={reviewValue}
+          onPress={() =>
+            updateDailyRecord(student.id, dayKey, {
+              hasCompletedReview: cycleBoolean(record.hasCompletedReview),
+            })
+          }
+          testID={`daily-review-status-${student.id}`}
         />
       </View>
 
@@ -410,7 +428,7 @@ export default function AttendanceScreen() {
           title={mode === 'daily' ? 'سجل اليوم' : 'خطة بداية الشهر'}
           subtitle={
             mode === 'daily'
-              ? 'حدّث الحضور والحفظ من هذه القائمة مباشرة.'
+              ? 'حدّث الحضور وحفظ السورة والمراجعة من هذه القائمة مباشرة.'
               : 'سجّل سورة ومراجعة بداية الشهر لكل طالب.'
           }
         />
